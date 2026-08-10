@@ -104,7 +104,13 @@ function parseLinkHeader(header,base){
 }
 
 function chooseMachineEndpoint(endpoints){
-  const rank=e=>e.kind==='negotiated-markdown'?0:(String(e.type).includes('json')||e.kind==='openapi'?1):(String(e.type).includes('markdown')?2):(e.kind==='advertised-alternate'?3):9;
+  const rank=e=>{
+    if(e.kind==='negotiated-markdown')return 0;
+    if(String(e.type||'').includes('json')||e.kind==='openapi')return 1;
+    if(String(e.type||'').includes('markdown'))return 2;
+    if(e.kind==='advertised-alternate')return 3;
+    return 9;
+  };
   return [...endpoints].sort((a,b)=>rank(a)-rank(b))[0]||null;
 }
 
