@@ -1,0 +1,22 @@
+[
+  {"id":"example-static","category":"static-html","url":"https://example.com/","acceptableRoutes":["HTTP"],"notes":"Small server-rendered HTML control."},
+  {"id":"wikipedia-article","category":"content","url":"https://en.wikipedia.org/wiki/Artificial_intelligence","acceptableRoutes":["HTTP","MACHINE_ENDPOINT"],"notes":"Large public content page."},
+  {"id":"github-docs","category":"documentation","url":"https://docs.github.com/en/rest","acceptableRoutes":["HTTP","MACHINE_ENDPOINT"],"notes":"Developer documentation."},
+  {"id":"cloudflare-docs","category":"documentation","url":"https://developers.cloudflare.com/","acceptableRoutes":["HTTP","MACHINE_ENDPOINT"],"notes":"Developer documentation with evolving machine-friendly behavior."},
+  {"id":"npm-registry-json","category":"api-json","url":"https://registry.npmjs.org/react/latest","acceptableRoutes":["HTTP"],"notes":"Direct JSON API control."},
+  {"id":"github-api-json","category":"api-json","url":"https://api.github.com/repos/nodejs/node","acceptableRoutes":["HTTP"],"notes":"Direct JSON API control."},
+  {"id":"rss-nasa","category":"feed","url":"https://www.nasa.gov/feed/","acceptableRoutes":["HTTP","MACHINE_ENDPOINT"],"notes":"Syndication/feed route."},
+  {"id":"reddit-home","category":"community","url":"https://www.reddit.com/","acceptableRoutes":["HTTP","BROWSER","AVOID","MACHINE_ENDPOINT"],"notes":"Access behavior can vary by network and automation policy; observation target rather than strict oracle."},
+  {"id":"amazon-home","category":"commerce","url":"https://www.amazon.com/","acceptableRoutes":["HTTP","BROWSER","AVOID","MACHINE_ENDPOINT"],"notes":"Commerce site with variable anti-automation behavior; observation target."},
+  {"id":"shopify-home","category":"commerce-platform","url":"https://www.shopify.com/","acceptableRoutes":["HTTP","BROWSER","MACHINE_ENDPOINT"],"notes":"Modern commerce platform marketing site."},
+  {"id":"stripe-docs","category":"documentation","url":"https://docs.stripe.com/","acceptableRoutes":["HTTP","MACHINE_ENDPOINT","BROWSER"],"notes":"Modern developer docs."},
+  {"id":"vercel-home","category":"js-heavy","url":"https://vercel.com/","acceptableRoutes":["HTTP","BROWSER","MACHINE_ENDPOINT"],"notes":"Modern application/marketing frontend."},
+  {"id":"notion-home","category":"js-heavy","url":"https://www.notion.com/","acceptableRoutes":["HTTP","BROWSER","MACHINE_ENDPOINT"],"notes":"Modern application frontend."},
+  {"id":"nytimes-home","category":"publisher","url":"https://www.nytimes.com/","acceptableRoutes":["HTTP","BROWSER","AVOID","MACHINE_ENDPOINT"],"notes":"Publisher access and paywall behavior can vary; observation target."},
+  {"id":"medium-home","category":"publisher","url":"https://medium.com/","acceptableRoutes":["HTTP","BROWSER","AVOID","MACHINE_ENDPOINT"],"notes":"Publisher with dynamic access behavior."},
+  {"id":"httpbin-401","category":"auth","url":"https://httpbin.org/status/401","acceptableRoutes":["AVOID"],"notes":"Authentication-required HTTP control."},
+  {"id":"httpbin-403","category":"denied","url":"https://httpbin.org/status/403","acceptableRoutes":["AVOID"],"notes":"Denied-access HTTP control."},
+  {"id":"httpbin-429","category":"rate-limit","url":"https://httpbin.org/status/429","acceptableRoutes":["AVOID"],"notes":"Rate-limited HTTP control."},
+  {"id":"httpbin-500","category":"server-error","url":"https://httpbin.org/status/500","acceptableRoutes":["AVOID"],"notes":"Server-error HTTP control."},
+  {"id":"httpbin-redirect","category":"redirect","url":"https://httpbin.org/redirect-to?url=https%3A%2F%2Fexample.com%2F","acceptableRoutes":["HTTP"],"notes":"Redirect-chain control."}
+]
