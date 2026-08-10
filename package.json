@@ -1,0 +1,13 @@
+{
+  "name": "preflight-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Routing intelligence for AI agents before they visit a URL.",
+  "engines": {"node": ">=20"},
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "test": "node --test test/*.test.js"
+  }
+}
