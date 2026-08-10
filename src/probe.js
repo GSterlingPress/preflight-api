@@ -37,7 +37,7 @@ function parseRobotsGroups(text){
     const i=line.indexOf(':');if(i<0)continue;
     const field=line.slice(0,i).trim().toLowerCase(),value=line.slice(i+1).trim();
     if(field==='user-agent'){
-      if(!current||current.rules.length) {current={agents:[],rules:[]};groups.push(current);}
+      if(!current||current.rules.length){current={agents:[],rules:[]};groups.push(current);}
       current.agents.push(value.toLowerCase());
     }else if(current&&(field==='allow'||field==='disallow'))current.rules.push({type:field,path:value});
   }
@@ -56,7 +56,12 @@ export function robotsDecision(text,targetUrl,userAgent='preflight'){
 
 async function inspectRobots(origin,targetUrl){
   const robots=`${origin}/robots.txt`;
-  try{const {response}=await safeFetch(robots,{headers:{'user-agent':UA,'accept':'text/plain,*/*;q=0.1'}});if(!response.ok)return {url:robots,status:response.status,allowed:null,policy:'unknown',matchedRule:null};const txt=(await response.text()).slice(0,300000);return {url:robots,status:response.status,...robotsDecision(txt,targetUrl)};}catch{return {url:robots,status:null,allowed:null,policy:'unknown',matchedRule:null};}
+  try{
+    const {response}=await safeFetch(robots,{headers:{'user-agent':UA,'accept':'text/plain,*/*;q=0.1'}});
+    if(!response.ok)return {url:robots,status:response.status,allowed:null,policy:'unknown',matchedRule:null};
+    const raw=(await response.text()).slice(0,300000);
+    return {url:robots,status:response.status,raw,...robotsDecision(raw,targetUrl)};
+  }catch{return {url:robots,status:null,allowed:null,policy:'unknown',matchedRule:null};}
 }
 
 async function discoverOriginEndpoints(origin){
@@ -126,13 +131,8 @@ export async function probeUrl(input,{domainCache=defaultDomainCache}={}){
   const advertised=uniq([...(html?.machine||[]),...parseLinkHeader(response.headers.get('link'),url)]);
   const originMachine=(domain.commonEndpoints||[]).filter(x=>x.kind!=='sitemap').map(x=>({...x,type:x.contentType||x.kind}));
   const machineEndpoints=uniq([...(markdown.available?[{kind:'negotiated-markdown',type:markdown.contentType,url:markdown.url,accept:markdown.accept,estimatedTokens:markdown.estimatedTokens}]:[]),...advertised,...originMachine]);
-  const reachable=response.status>0&&response.status<500;const robots=domain.robots?.url?{...domain.robots,...robotsDecisionFromDomain(domain.robots,url)}:domain.robots;
+  const reachable=response.status>0&&response.status<500;const robots=domain.robots?.raw?{...domain.robots,...robotsDecision(domain.robots.raw,url)}:domain.robots;
   const decision=routeDecision({reachable,status:response.status,contentType,html,bytes,machineEndpoints,robots});const recommended=decision.route==='MACHINE_ENDPOINT'?chooseMachineEndpoint(machineEndpoints):null;
   const normalTokens=textTokenEstimate(html?.textChars??text.length);const recommendedTokens=recommended?.estimatedTokens??null;
   return {url:input,finalUrl:url,reachable,status:response.status,bestRoute:decision.route,recommendedRoute:recommended,reason:decision.reason,confidence:decision.confidence,robots:{policy:robots?.policy??'unknown',allowed:robots?.allowed??null,matchedRule:robots?.matchedRule??null},access:{authentication:response.status===401||response.status===403||!!html?.login,payment:response.status===402||!!html?.paywall,captchaRisk:html?.captcha?'high':'low'},javascript:html?.jsLikely??null,content:{type:contentType||null,bytes,estimatedTokens:normalTokens,jsonLd:html?.jsonLd??0},machineEndpoints,domainHints:{origin:domain.origin,commonEndpoints:domain.commonEndpoints||[],cache:domain.cache??null},canonical:html?.canonical??null,redirects:redirectChain.length>1?redirectChain:[],savings:recommendedTokens?{estimatedTokenReduction:Math.max(0,normalTokens-recommendedTokens),estimatedPercent:normalTokens?Math.max(0,Math.round((1-recommendedTokens/normalTokens)*100)):0}:null,latencyMs:Date.now()-started,observedAt:new Date().toISOString()};
-}
-
-function robotsDecisionFromDomain(robots,targetUrl){
-  if(!robots?.raw)return {allowed:robots?.allowed??null,policy:robots?.policy??'unknown',matchedRule:robots?.matchedRule??null};
-  return robotsDecision(robots.raw,targetUrl);
 }
