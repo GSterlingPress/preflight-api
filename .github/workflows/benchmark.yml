@@ -1,0 +1,40 @@
+name: PREFLIGHT Live Benchmark
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * 1'
+  push:
+    branches: [m1p3-real-world-benchmark]
+    paths:
+      - benchmarks/**
+      - scripts/benchmark.js
+      - src/benchmark.js
+      - .github/workflows/benchmark.yml
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Run deterministic tests first
+        run: npm test
+      - name: Observe real-world routing behavior
+        env:
+          PREFLIGHT_BENCHMARK_LIMIT: '20'
+        run: npm run benchmark
+      - name: Upload machine-readable observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preflight-benchmark-${{ github.run_id }}
+          path: benchmark-results/*.json
+          if-no-files-found: warn
+          retention-days: 30
