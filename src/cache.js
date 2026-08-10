@@ -4,6 +4,7 @@ import path from 'node:path';
 export class FileCache {
   constructor({dataDir=process.env.PREFLIGHT_DATA_DIR ?? path.resolve('.preflight-data'), ttlMs=Number(process.env.PREFLIGHT_CACHE_TTL_MS || 15*60*1000), namespace='url'}={}){
     this.file=path.join(dataDir,`${namespace}-cache.json`);
+    this.namespace=namespace;
     this.ttlMs=ttlMs;
     this.loaded=false;
     this.map=new Map();
@@ -19,7 +20,7 @@ export class FileCache {
     if(!row)return null;
     const age=Date.now()-Date.parse(row.observedAt);
     if(!Number.isFinite(age)||age>this.ttlMs){this.map.delete(key);return null;}
-    return {...row.value,cache:{hit:true,scope:this.namespace??'cache',ageMs:age,observedAt:row.observedAt,ttlMs:this.ttlMs}};
+    return {...row.value,cache:{hit:true,scope:this.namespace,ageMs:age,observedAt:row.observedAt,ttlMs:this.ttlMs}};
   }
   async put(key,value){
     await this.init();
@@ -29,7 +30,7 @@ export class FileCache {
     const tmp=`${this.file}.${process.pid}.${Date.now()}.tmp`;
     await fs.writeFile(tmp,JSON.stringify([...this.map.values()],null,2),{mode:0o600});
     await fs.rename(tmp,this.file);
-    return {...value,cache:{hit:false,scope:this.namespace??'cache',ageMs:0,observedAt:row.observedAt,ttlMs:this.ttlMs}};
+    return {...value,cache:{hit:false,scope:this.namespace,ageMs:0,observedAt:row.observedAt,ttlMs:this.ttlMs}};
   }
 }
 
