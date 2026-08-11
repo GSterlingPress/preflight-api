@@ -10,6 +10,7 @@ on:
       - benchmarks/**
       - scripts/benchmark.js
       - src/benchmark.js
+      - package.json
       - .github/workflows/benchmark.yml
 
 permissions:
