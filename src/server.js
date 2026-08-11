@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import {createUrlCache} from './cache.js';
 import {probeUrl} from './probe.js';
 
-export const VERSION='0.2.0';
+export const VERSION='0.3.0';
 const cache=createUrlCache();
 const baseHeaders={'x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer','cache-control':'no-store'};
 function send(res,status,body,headers={}){const json=JSON.stringify(body);res.writeHead(status,{'content-type':'application/json; charset=utf-8','content-length':Buffer.byteLength(json),...baseHeaders,...headers});res.end(json)}
