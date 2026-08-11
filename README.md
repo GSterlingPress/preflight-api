@@ -59,11 +59,15 @@ PREFLIGHT stores aggregated success/failure evidence rather than page content or
 ## Agent discovery
 
 - `AGENTS.md` tells coding/AI agents exactly when to use PREFLIGHT.
+- `llms.txt` gives LLMs a compact machine-readable explanation, live endpoints, and usage rule.
+- `openapi.json` exposes REST operations in OpenAPI 3.1 format for tool importers and generated clients.
+- `mcp.json` contains a generic remote MCP client configuration.
+- `docs/AGENT-INTEGRATIONS.md` contains copy/paste integration patterns for browser, research, shopping, coding, MCP, and REST agents.
 - `server.json` contains official MCP Registry metadata for the public Streamable HTTP server.
 - `/mcp` supports MCP initialize, initialized notification, ping, `tools/list`, and `tools/call`.
 - The ordinary REST endpoint remains available for clients that do not use MCP.
 
-Search/discovery concepts: **AI agent URL routing**, **browser-agent preflight**, **choose HTTP vs browser**, **machine-readable endpoint discovery**, **reduce agent browsing tokens**, **agent web routing**, **pre-fetch routing intelligence**.
+Search/discovery concepts: **AI agent URL routing**, **browser-agent preflight**, **choose HTTP vs browser**, **machine-readable endpoint discovery**, **reduce agent browsing tokens**, **agent web routing**, **pre-fetch routing intelligence**, **AI browser cost reduction**, **route before crawl**, **agent URL access intelligence**.
 
 ## Public deployment
 
