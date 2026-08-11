@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "preflight": {
+      "type": "streamable-http",
+      "url": "https://preflight-api-production-01a2.up.railway.app/mcp"
+    }
+  }
+}
