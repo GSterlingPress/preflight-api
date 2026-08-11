@@ -12,11 +12,13 @@ Base URL:
 
 `https://preflight-api-production-01a2.up.railway.app`
 
-REST:
+REST — use the **actual URL your agent is about to visit**:
 
 ```http
-GET /v1/check?url=https://example.com
+GET /v1/check?url=<encoded-actual-destination-url>
 ```
+
+For example, if your agent is about to inspect a product, documentation page, article, booking page, or SaaS site, pass that real destination to PREFLIGHT first. `example.com` is only a documentation placeholder and should not be used when a real task URL exists.
 
 Remote MCP:
 
@@ -24,12 +26,12 @@ Remote MCP:
 
 The MCP server exposes two tools:
 
-- `preflight_check` — call this **before fetching or browser-rendering an unfamiliar URL**.
+- `preflight_check` — call this **before fetching or browser-rendering an unfamiliar real URL**.
 - `preflight_feedback` — report whether the chosen route worked so PREFLIGHT can improve future recommendations.
 
 Example tool intent:
 
-> Before opening this URL, use PREFLIGHT to decide whether ordinary HTTP, a browser, a machine-readable endpoint, or avoidance is the best first route.
+> Before opening the URL from my current task, use PREFLIGHT to decide whether ordinary HTTP, a browser, a machine-readable endpoint, or avoidance is the best first route.
 
 ## Why an agent should call PREFLIGHT
 
@@ -47,7 +49,7 @@ Authorization: Bearer <feedback-key>   # when protection is enabled
 
 ```json
 {
-  "url": "https://example.com/product/123",
+  "url": "https://merchant.example/product/123",
   "route": "BROWSER",
   "outcome": "success",
   "latencyMs": 840
@@ -94,4 +96,4 @@ npm start
 
 PREFLIGHT is not a crawler, browser farm, search engine or site-owner audit tool. Its job is narrower:
 
-> **URL in → cheapest reliable machine route out.**
+> **Real URL in → cheapest reliable machine route out.**
