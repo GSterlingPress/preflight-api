@@ -1,0 +1,57 @@
+name: Validate Live Activity Dashboard
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - src/server.js
+      - src/activity.js
+      - package.json
+      - .github/workflows/validate-live-activity.yml
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Read release version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(node -e "process.stdout.write(require('./package.json').version)")
+          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Wait for PREFLIGHT live version
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://preflight-api-production-01a2.up.railway.app'
+          WANT='${{ steps.version.outputs.value }}'
+          for i in $(seq 1 50); do
+            R=$(curl -fsS --max-time 10 "$BASE/version" || true)
+            if echo "$R" | grep -q "\"version\":\"$WANT\""; then exit 0; fi
+            sleep 5
+          done
+          exit 1
+      - name: Validate PREFLIGHT activity API and dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://preflight-api-production-01a2.up.railway.app'
+          curl -fsS --max-time 15 "$BASE/v1/activity" | tee preflight-activity.json
+          grep -q '"service":"PREFLIGHT"' preflight-activity.json
+          grep -q '"external"' preflight-activity.json
+          curl -fsS --max-time 15 "$BASE/activity" | tee activity.html
+          grep -q 'Sterling Machine Activity' activity.html
+          grep -q 'PREFLIGHT' activity.html
+          grep -q 'ONCE' activity.html
+      - name: Validate ONCE activity API
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --max-time 15 'https://optimistic-compassion-production.up.railway.app/v1/activity' | tee once-activity.json
+          grep -q '"service":"ONCE"' once-activity.json
+          grep -q '"external"' once-activity.json
