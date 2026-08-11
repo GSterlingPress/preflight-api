@@ -1,8 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+function defaultDataDir(){return process.env.PREFLIGHT_DATA_DIR ?? (process.env.RAILWAY_ENVIRONMENT?'/data':path.resolve('.preflight-data'));}
+
 export class FileCache {
-  constructor({dataDir=process.env.PREFLIGHT_DATA_DIR ?? path.resolve('.preflight-data'), ttlMs=Number(process.env.PREFLIGHT_CACHE_TTL_MS || 15*60*1000), namespace='url'}={}){
+  constructor({dataDir=defaultDataDir(), ttlMs=Number(process.env.PREFLIGHT_CACHE_TTL_MS || 15*60*1000), namespace='url'}={}){
     this.file=path.join(dataDir,`${namespace}-cache.json`);
     this.namespace=namespace;
     this.ttlMs=ttlMs;
