@@ -1,0 +1,30 @@
+{
+  "openapi":"3.1.0",
+  "info":{
+    "title":"PREFLIGHT",
+    "version":"0.7.0",
+    "description":"Routing intelligence for AI agents before they visit a URL. Ask PREFLIGHT whether to use HTTP, a browser, a machine endpoint, or avoid the fetch."
+  },
+  "servers":[{"url":"https://preflight-api-production-01a2.up.railway.app"}],
+  "paths":{
+    "/v1/check":{
+      "get":{
+        "operationId":"preflightCheck",
+        "summary":"Choose the best machine route before visiting a URL",
+        "parameters":[{"name":"url","in":"query","required":true,"schema":{"type":"string","format":"uri"}}],
+        "responses":{"200":{"description":"Routing recommendation"},"400":{"description":"Invalid or missing URL"},"422":{"description":"Unsafe URL"}}
+      }
+    },
+    "/v1/feedback":{
+      "post":{
+        "operationId":"preflightFeedback",
+        "summary":"Report whether a route worked so PREFLIGHT can learn",
+        "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["url","route","outcome"],"properties":{"url":{"type":"string","format":"uri"},"route":{"type":"string","enum":["HTTP","BROWSER","MACHINE_ENDPOINT","AVOID"]},"outcome":{"type":"string","enum":["success","failure"]},"latencyMs":{"type":"number","minimum":0,"maximum":300000}}}}}},
+        "responses":{"202":{"description":"Feedback accepted"},"400":{"description":"Invalid feedback"},"401":{"description":"Bearer token required when feedback protection is enabled"}}
+      }
+    },
+    "/v1/activity":{"get":{"operationId":"preflightActivity","summary":"Privacy-safe external usage telemetry","responses":{"200":{"description":"Activity summary"}}}},
+    "/health":{"get":{"operationId":"preflightHealth","responses":{"200":{"description":"Healthy"}}}},
+    "/ready":{"get":{"operationId":"preflightReady","responses":{"200":{"description":"Ready"}}}}
+  }
+}
