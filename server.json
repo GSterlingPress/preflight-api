@@ -1,15 +1,10 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.GSterlingPress/preflight",
-  "title": "PREFLIGHT — Route Before You Fetch",
-  "description": "Call before an AI agent fetches, crawls, scrapes, opens, or browser-renders an unfamiliar URL. PREFLIGHT predicts the cheapest usable route: HTTP, browser, machine endpoint, or avoid.",
-  "version": "0.7.0",
+  "title": "PREFLIGHT — URL Routing for AI Agents",
+  "description": "Before an AI agent fetches, crawls, scrapes, opens, or browser-renders an unfamiliar URL, PREFLIGHT recommends HTTP, browser, machine endpoint, or avoid and returns access, JavaScript, size, and cost hints.",
+  "version": "0.7.1",
   "websiteUrl": "https://github.com/GSterlingPress/preflight-api",
   "repository": {"url": "https://github.com/GSterlingPress/preflight-api", "source": "github"},
-  "remotes": [
-    {
-      "type": "streamable-http",
-      "url": "https://preflight-api-production-01a2.up.railway.app/mcp"
-    }
-  ]
+  "remotes": [{"type": "streamable-http", "url": "https://preflight-api-production-01a2.up.railway.app/mcp"}]
 }
