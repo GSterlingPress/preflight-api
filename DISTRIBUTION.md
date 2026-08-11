@@ -17,6 +17,16 @@ Try it:
 
 Repo: https://github.com/GSterlingPress/preflight-api
 
+## Attribution standard
+For direct REST integrations, send `X-Preflight-Source` and optionally `X-Preflight-Campaign`. These labels are recorded with privacy-safe activity telemetry and let us measure which distribution channels produce real usage.
+
+Example:
+`curl -H 'X-Preflight-Source: github' -H 'X-Preflight-Campaign: m2p4' 'https://preflight-api-production-01a2.up.railway.app/v1/check?url=https://example.com'`
+
+Recommended source labels: `github`, `mcp-registry`, `glama`, `smithery`, `pulsemcp`, `mcp-so`, `hackernews`, `reddit`, `devto`, `linkedin`, `direct`.
+
+For clickable human links where custom headers are unavailable, use a landing/check URL with ordinary UTM parameters for human analytics; API attribution should prefer the headers above because PREFLIGHT intentionally does not retain full target URLs.
+
 ## Short social version
 What if AI agents didn't have to rediscover how every website works?
 
@@ -56,6 +66,15 @@ Activity: https://preflight-api-production-01a2.up.railway.app/activity
 - relevant Reddit communities, with useful technical context rather than link spam
 - GitHub search/discovery
 - AI infrastructure discussions where HTTP-vs-browser cost is relevant
+
+## 100-check scoreboard
+Milestone A: 1 real external URL check — achieved before durable telemetry rollout.
+Milestone B: 10 attributable external URL checks.
+Milestone C: 25 attributable external URL checks.
+Milestone D: 50 attributable external URL checks.
+Milestone E: 100 attributable external URL checks.
+
+Do not count our own CI, health checks, dashboard requests, or deliberate acceptance tests as customer usage.
 
 ## Rule
 Lead with the problem and a runnable example. Do not claim adoption, savings, or reliability numbers we have not measured.
