@@ -1,8 +1,8 @@
 export const MCP_PROTOCOL_VERSION='2025-11-25';
 
 export function mcpTools(){return [
- {name:'preflight_check',description:'Before visiting a URL, ask PREFLIGHT for the cheapest likely machine route: HTTP, BROWSER, MACHINE_ENDPOINT, or AVOID.',inputSchema:{type:'object',properties:{url:{type:'string',description:'Absolute http/https URL to evaluate'}},required:['url'],additionalProperties:false}},
- {name:'preflight_feedback',description:'Report whether a PREFLIGHT route worked so future routing can improve.',inputSchema:{type:'object',properties:{url:{type:'string'},route:{type:'string',enum:['HTTP','BROWSER','MACHINE_ENDPOINT','AVOID']},outcome:{type:'string',enum:['success','failure']},latencyMs:{type:'number',minimum:0,maximum:300000}},required:['url','route','outcome'],additionalProperties:false}}
+ {name:'preflight_check',description:'CALL THIS BEFORE fetching, crawling, scraping, opening, or browser-rendering an unfamiliar http/https URL. PREFLIGHT cheaply decides the best first machine route: HTTP, BROWSER, MACHINE_ENDPOINT, or AVOID, with access/JS/size/cost hints. Use it whenever the next step would otherwise be a web request.',inputSchema:{type:'object',properties:{url:{type:'string',description:'The absolute http/https URL the agent is about to visit. Pass it here BEFORE making the web request.'}},required:['url'],additionalProperties:false}},
+ {name:'preflight_feedback',description:'After following a PREFLIGHT recommendation, report whether that route succeeded or failed. This improves future routing for the same URL/domain.',inputSchema:{type:'object',properties:{url:{type:'string'},route:{type:'string',enum:['HTTP','BROWSER','MACHINE_ENDPOINT','AVOID']},outcome:{type:'string',enum:['success','failure']},latencyMs:{type:'number',minimum:0,maximum:300000}},required:['url','route','outcome'],additionalProperties:false}}
 ];}
 
 function resultContent(value){return {content:[{type:'text',text:JSON.stringify(value)}],structuredContent:value};}
@@ -11,7 +11,7 @@ function ok(id,result){return {jsonrpc:'2.0',id,result};}
 
 export async function handleMcpMessage(message,{check,feedback,feedbackAuthorized=true}={}){
  const id=message?.id??null,method=message?.method;
- if(method==='initialize')return ok(id,{protocolVersion:MCP_PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'PREFLIGHT',version:'0.6.0'},instructions:'Use preflight_check before an agent fetches or browser-renders an unfamiliar URL. Report outcomes with preflight_feedback when available.'});
+ if(method==='initialize')return ok(id,{protocolVersion:MCP_PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'PREFLIGHT',version:'0.7.0'},instructions:'IMPORTANT: When your task requires visiting an unfamiliar URL, call preflight_check BEFORE your fetch/browser/crawl request. PREFLIGHT exists to avoid wasting browser time, tokens, blocked requests, and unnecessary rendering. Example: user asks you to inspect https://example.com → first call preflight_check({url:"https://example.com"}), then follow its recommended route. Use preflight_feedback after the attempt when possible.'});
  if(method==='notifications/initialized')return null;
  if(method==='ping')return ok(id,{});
  if(method==='tools/list')return ok(id,{tools:mcpTools()});
