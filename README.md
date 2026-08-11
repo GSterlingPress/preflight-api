@@ -2,19 +2,42 @@
 
 **Before your AI agent visits a URL, ask us how to get there.**
 
-PREFLIGHT is a routing-intelligence API for browser/research/shopping agents. Given a URL, it returns the cheapest likely route to try first: `HTTP`, `BROWSER`, `MACHINE_ENDPOINT`, or `AVOID`.
+PREFLIGHT is routing intelligence for browser, research and shopping agents. Given a URL, it recommends the cheapest likely route to try first: `HTTP`, `BROWSER`, `MACHINE_ENDPOINT`, or `AVOID`.
 
 The long-term product is a machine map of the web: not *what is on the web*, but *how should a machine interact with this destination?*
 
-## Check a URL
+## Live service
+
+Base URL:
+
+`https://preflight-api-production-01a2.up.railway.app`
+
+REST:
 
 ```http
 GET /v1/check?url=https://example.com
 ```
 
-PREFLIGHT combines direct probe signals, cached domain knowledge, and sufficiently strong observed route feedback. Responses include a `feedback` block showing available evidence, any learned route, and whether that evidence changed the current recommendation.
+Remote MCP:
 
-## Report whether a route worked
+`https://preflight-api-production-01a2.up.railway.app/mcp`
+
+The MCP server exposes two tools:
+
+- `preflight_check` — call this **before fetching or browser-rendering an unfamiliar URL**.
+- `preflight_feedback` — report whether the chosen route worked so PREFLIGHT can improve future recommendations.
+
+Example tool intent:
+
+> Before opening this URL, use PREFLIGHT to decide whether ordinary HTTP, a browser, a machine-readable endpoint, or avoidance is the best first route.
+
+## Why an agent should call PREFLIGHT
+
+Fetching first can be wasteful. A destination may be directly readable over HTTP, require browser rendering, expose a smaller machine endpoint, block automation, require authentication/payment, or carry access signals that make a fetch undesirable. PREFLIGHT tries to answer that routing question before the expensive step.
+
+Responses combine direct probe signals, cached domain knowledge, and sufficiently strong observed route feedback. They can include status, redirects, robots/access hints, estimated token size, JavaScript-shell hints, structured-data signals, machine endpoints, latency, confidence, cache age, and learned route evidence.
+
+## Feedback loop
 
 ```http
 POST /v1/feedback
@@ -33,21 +56,18 @@ Authorization: Bearer <feedback-key>   # when protection is enabled
 
 PREFLIGHT stores aggregated success/failure evidence rather than page content or user identities. URL-level learning requires at least 5 samples at 80% success; domain-level learning requires at least 10 samples at 85% success. Feedback never overrides a current `AVOID` decision from live safety/access/robots signals.
 
-## M1P5 — Public deployment
+## Agent discovery
 
-Version 0.5 adds production launch plumbing:
+- `AGENTS.md` tells coding/AI agents exactly when to use PREFLIGHT.
+- `server.json` contains official MCP Registry metadata for the public Streamable HTTP server.
+- `/mcp` supports MCP initialize, initialized notification, ping, `tools/list`, and `tools/call`.
+- The ordinary REST endpoint remains available for clients that do not use MCP.
 
-- `GET /ready` verifies the feedback data directory is writable.
-- Railway deployments automatically use `/data`; mount a Railway persistent volume there.
-- `PREFLIGHT_FEEDBACK_KEY` optionally bearer-protects `POST /v1/feedback` while keeping `GET /v1/check` public.
-- `npm run smoke:live` proves the full public cycle: version → readiness → route check → feedback receipt → evidence increase.
-- `railway.json` health-checks `/ready`.
+Search/discovery concepts: **AI agent URL routing**, **browser-agent preflight**, **choose HTTP vs browser**, **machine-readable endpoint discovery**, **reduce agent browsing tokens**, **agent web routing**, **pre-fetch routing intelligence**.
 
-See `DEPLOYMENT.md` for the exact Railway setup.
+## Public deployment
 
-## Routing intelligence
-
-PREFLIGHT observes status, redirects, body shape, token estimate, JavaScript-shell hints, canonical URL, JSON-LD, access/challenge hints, robots rules, content negotiation, advertised alternates and common machine surfaces such as OpenAPI metadata. URL results use a short cache; reusable domain observations use a longer cache.
+`GET /ready` verifies the data directory is writable. Railway deployments use `/data`; mount a persistent volume there when long-term feedback persistence is required. `PREFLIGHT_FEEDBACK_KEY` optionally bearer-protects feedback writes while keeping route checks public. `npm run smoke:live` exercises the public route/feedback cycle.
 
 ## Real-world benchmark
 
@@ -55,7 +75,7 @@ PREFLIGHT observes status, redirects, body shape, token estimate, JavaScript-she
 
 ## Safety boundary
 
-PREFLIGHT blocks localhost, private/link-local network addresses, credential-bearing URLs, non-HTTP protocols, and unsafe redirect destinations. Endpoint discovery and negotiated probes go through the same SSRF-safe fetch layer. Route feedback cannot relax an active `AVOID` result.
+PREFLIGHT blocks localhost, private/link-local network addresses, credential-bearing URLs, non-HTTP protocols, and unsafe redirect destinations. Endpoint discovery and negotiated probes go through the same SSRF-safe fetch layer. MCP validates browser Origins, and route feedback cannot relax an active `AVOID` result.
 
 ## Run locally
 
@@ -66,19 +86,8 @@ npm test
 npm start
 ```
 
-## Environment
-
-- `PORT` — server port (default `8080`)
-- `HOST` — bind host (default `0.0.0.0`)
-- `PREFLIGHT_DATA_DIR` — caches and aggregated feedback data; defaults to `/data` on Railway
-- `PREFLIGHT_FEEDBACK_KEY` — optional bearer token protecting feedback writes
-- `PREFLIGHT_CACHE_TTL_MS` — URL cache freshness window (default 15 minutes)
-- `PREFLIGHT_DOMAIN_CACHE_TTL_MS` — domain observation freshness window (default 6 hours)
-
 ## Product boundary
 
 PREFLIGHT is not a crawler, browser farm, search engine or site-owner audit tool. Its job is narrower:
 
 > **URL in → cheapest reliable machine route out.**
-
-M1P5 makes the routing and self-learning loop deployable as a persistent public service.
