@@ -25,7 +25,7 @@ jobs:
       - name: Read release version
         id: version
         shell: bash
-        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: echo "value=$(node -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
       - name: Wait for live Railway deployment
         shell: bash
         run: |
