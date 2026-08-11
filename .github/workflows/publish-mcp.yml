@@ -1,0 +1,68 @@
+name: Validate and Publish PREFLIGHT to MCP Registry
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - server.json
+      - .github/workflows/publish-mcp.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - name: Run PREFLIGHT test suite
+        run: npm test
+      - name: Read release version
+        id: version
+        shell: bash
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+      - name: Wait for live Railway deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://preflight-api-production-01a2.up.railway.app'
+          WANT='${{ steps.version.outputs.value }}'
+          for i in $(seq 1 40); do
+            VERSION_JSON=$(curl -fsS --max-time 10 "$BASE/version" || true)
+            if echo "$VERSION_JSON" | grep -q "\"version\":\"$WANT\""; then echo "Live PREFLIGHT $WANT detected"; exit 0; fi
+            echo "Waiting for Railway deployment ($i/40)..."; sleep 5
+          done
+          exit 1
+      - name: Validate live MCP initialize and tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          WANT='${{ steps.version.outputs.value }}'
+          INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"preflight-registry-check","version":"1.0.0"}}}'
+          RESPONSE=$(curl -fsS --max-time 15 -X POST 'https://preflight-api-production-01a2.up.railway.app/mcp' -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' --data "$INIT")
+          echo "$RESPONSE" | grep -q '"protocolVersion":"2025-11-25"'
+          echo "$RESPONSE" | grep -q '"name":"PREFLIGHT"'
+          echo "$RESPONSE" | grep -q "\"version\":\"$WANT\""
+          TOOLS='{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+          RESPONSE=$(curl -fsS --max-time 15 -X POST 'https://preflight-api-production-01a2.up.railway.app/mcp' -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' --data "$TOOLS")
+          echo "$RESPONSE" | grep -q 'preflight_check'
+          echo "$RESPONSE" | grep -q 'preflight_feedback'
+      - name: Install official MCP publisher
+        run: curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Validate Registry metadata
+        run: ./mcp-publisher validate
+      - name: Authenticate with MCP Registry using GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+      - name: Publish PREFLIGHT
+        run: ./mcp-publisher publish
+      - name: Verify Registry discovery
+        shell: bash
+        run: |
+          sleep 3
+          curl -fsS 'https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.GSterlingPress/preflight' | tee registry-result.json
+          grep -q 'io.github.GSterlingPress/preflight' registry-result.json
