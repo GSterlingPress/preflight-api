@@ -2,12 +2,7 @@
 
 **Before your AI agent visits a URL, ask us how to get there.**
 
-PREFLIGHT is a routing-intelligence API for browser/research/shopping agents. Given a URL, it returns the cheapest likely route to try first:
-
-- `HTTP`
-- `BROWSER`
-- `MACHINE_ENDPOINT`
-- `AVOID`
+PREFLIGHT is a routing-intelligence API for browser/research/shopping agents. Given a URL, it returns the cheapest likely route to try first: `HTTP`, `BROWSER`, `MACHINE_ENDPOINT`, or `AVOID`.
 
 The long-term product is a machine map of the web: not *what is on the web*, but *how should a machine interact with this destination?*
 
@@ -17,13 +12,14 @@ The long-term product is a machine map of the web: not *what is on the web*, but
 GET /v1/check?url=https://example.com
 ```
 
-PREFLIGHT combines direct probe signals, cached domain knowledge, and sufficiently strong observed route feedback. Responses now include a `feedback` block showing the evidence available, any learned route, and whether that evidence changed the current recommendation.
+PREFLIGHT combines direct probe signals, cached domain knowledge, and sufficiently strong observed route feedback. Responses include a `feedback` block showing available evidence, any learned route, and whether that evidence changed the current recommendation.
 
 ## Report whether a route worked
 
 ```http
 POST /v1/feedback
 Content-Type: application/json
+Authorization: Bearer <feedback-key>   # when protection is enabled
 ```
 
 ```json
@@ -35,40 +31,27 @@ Content-Type: application/json
 }
 ```
 
-`route` must be one of `HTTP`, `BROWSER`, `MACHINE_ENDPOINT`, or `AVOID`. `outcome` is `success` or `failure`.
+PREFLIGHT stores aggregated success/failure evidence rather than page content or user identities. URL-level learning requires at least 5 samples at 80% success; domain-level learning requires at least 10 samples at 85% success. Feedback never overrides a current `AVOID` decision from live safety/access/robots signals.
 
-PREFLIGHT does not need the page content or a user identity. It stores aggregated success/failure counts by hashed URL and domain-level route evidence. Domain origins are retained so domain observations can remain operationally useful; raw per-event histories are not required for the learning loop.
+## M1P5 — Public deployment
 
-## M1P4 — Self-learning route feedback
+Version 0.5 adds production launch plumbing:
 
-The feedback layer is intentionally conservative:
+- `GET /ready` verifies the feedback data directory is writable.
+- Railway deployments automatically use `/data`; mount a Railway persistent volume there.
+- `PREFLIGHT_FEEDBACK_KEY` optionally bearer-protects `POST /v1/feedback` while keeping `GET /v1/check` public.
+- `npm run smoke:live` proves the full public cycle: version → readiness → route check → feedback receipt → evidence increase.
+- `railway.json` health-checks `/ready`.
 
-- URL-level learning requires at least **5** samples and at least **80%** success for a route.
-- Domain-level learning requires at least **10** samples and at least **85%** success.
-- URL evidence is preferred over broader domain evidence.
-- Feedback can improve `HTTP`, `BROWSER`, or `MACHINE_ENDPOINT` recommendations.
-- Feedback **never overrides a current `AVOID`** decision from live safety/access/robots signals.
-- Cached probe results are re-enriched with current feedback on every check, so newly learned evidence can affect a recommendation without waiting for the URL cache to expire.
-
-That creates the first Waze-like loop:
-
-> PREFLIGHT recommends → agent tries route → agent reports outcome → future agents receive a better route.
+See `DEPLOYMENT.md` for the exact Railway setup.
 
 ## Routing intelligence
 
-PREFLIGHT observes URL-level and reusable domain-level signals including status, redirects, body shape, token estimate, JavaScript-shell hints, canonical URL, JSON-LD, access/challenge hints, robots rules, content negotiation, advertised alternates and common machine surfaces such as OpenAPI metadata.
-
-URL results use a short cache. Domain observations use a longer cache, so expensive learning can be shared across many URL checks.
+PREFLIGHT observes status, redirects, body shape, token estimate, JavaScript-shell hints, canonical URL, JSON-LD, access/challenge hints, robots rules, content negotiation, advertised alternates and common machine surfaces such as OpenAPI metadata. URL results use a short cache; reusable domain observations use a longer cache.
 
 ## Real-world benchmark
 
-`benchmarks/sites.json` contains a cross-category live corpus. Run:
-
-```bash
-npm run benchmark
-```
-
-The benchmark records observed route, status, latency, token estimate and machine endpoints; scores flexible and strict-control cases separately; and writes machine-readable reports to `benchmark-results/`. A GitHub Actions workflow also runs the live benchmark on a schedule.
+`benchmarks/sites.json` contains a cross-category live corpus. Run `npm run benchmark`. The scheduled benchmark records route, status, latency, token estimate and machine endpoints and preserves machine-readable reports for trend analysis.
 
 ## Safety boundary
 
@@ -87,7 +70,8 @@ npm start
 
 - `PORT` — server port (default `8080`)
 - `HOST` — bind host (default `0.0.0.0`)
-- `PREFLIGHT_DATA_DIR` — caches and aggregated feedback data
+- `PREFLIGHT_DATA_DIR` — caches and aggregated feedback data; defaults to `/data` on Railway
+- `PREFLIGHT_FEEDBACK_KEY` — optional bearer token protecting feedback writes
 - `PREFLIGHT_CACHE_TTL_MS` — URL cache freshness window (default 15 minutes)
 - `PREFLIGHT_DOMAIN_CACHE_TTL_MS` — domain observation freshness window (default 6 hours)
 
@@ -97,4 +81,4 @@ PREFLIGHT is not a crawler, browser farm, search engine or site-owner audit tool
 
 > **URL in → cheapest reliable machine route out.**
 
-M1P4 adds the network-effect loop that can make those answers improve as agents use them.
+M1P5 makes the routing and self-learning loop deployable as a persistent public service.
