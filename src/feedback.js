@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 
 export const ROUTES=['HTTP','BROWSER','MACHINE_ENDPOINT','AVOID'];
 export const OUTCOMES=['success','failure'];
-
+function defaultDataDir(){return process.env.PREFLIGHT_DATA_DIR??(process.env.RAILWAY_ENVIRONMENT?'/data':path.resolve('.preflight-data'));}
 function normalizeUrl(value){const u=new URL(value);if(!['http:','https:'].includes(u.protocol))throw Object.assign(new Error('Only http/https URLs are allowed'),{code:'PREFLIGHT_BAD_URL'});u.hash='';return u.href;}
 function hash(value){return crypto.createHash('sha256').update(value).digest('hex');}
 function emptyRoute(){return {success:0,failure:0,total:0,latencySamples:0,latencyTotalMs:0};}
@@ -13,7 +13,7 @@ function publicRoute(bucket={}){const total=Number(bucket.total||0),success=Numb
 function publicScope(scope){const routes={};for(const route of ROUTES)routes[route]=publicRoute(scope?.routes?.[route]);return {samples:Object.values(routes).reduce((n,r)=>n+r.total,0),routes};}
 
 export class FeedbackStore{
-  constructor({dataDir=process.env.PREFLIGHT_DATA_DIR??path.resolve('.preflight-data')}={}){this.dataDir=dataDir;this.file=path.join(dataDir,'route-feedback.json');this.loaded=false;this.data={urls:{},domains:{}};}
+  constructor({dataDir=defaultDataDir()}={}){this.dataDir=dataDir;this.file=path.join(dataDir,'route-feedback.json');this.loaded=false;this.data={urls:{},domains:{}};}
   async init(){if(this.loaded)return;try{this.data=JSON.parse(await fs.readFile(this.file,'utf8'));}catch(e){if(e?.code!=='ENOENT')throw e}this.data.urls??={};this.data.domains??={};this.loaded=true;}
   async ready(){await fs.mkdir(this.dataDir,{recursive:true});await fs.access(this.dataDir,fs.constants.W_OK);await this.init();return {ok:true,dataDir:this.dataDir};}
   async persist(){await fs.mkdir(path.dirname(this.file),{recursive:true});const tmp=`${this.file}.${process.pid}.${Date.now()}.tmp`;await fs.writeFile(tmp,JSON.stringify(this.data,null,2),{mode:0o600});await fs.rename(tmp,this.file);}
