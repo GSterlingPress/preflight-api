@@ -4,7 +4,7 @@ import {createUrlCache} from './cache.js';
 import {probeUrl} from './probe.js';
 import {FeedbackStore,applyRouteFeedback,ROUTES,OUTCOMES} from './feedback.js';
 
-export const VERSION='0.4.0';
+export const VERSION='0.5.0';
 const cache=createUrlCache();
 const feedback=new FeedbackStore();
 const baseHeaders={'x-content-type-options':'nosniff','x-frame-options':'DENY','referrer-policy':'no-referrer','cache-control':'no-store'};
@@ -12,10 +12,12 @@ function send(res,status,body,headers={}){const json=JSON.stringify(body);res.wr
 function keyFor(url){const u=new URL(url);u.hash='';return u.href;}
 async function readJson(req,maxBytes=16384){let total=0,chunks=[];for await(const chunk of req){total+=chunk.length;if(total>maxBytes)throw Object.assign(new Error('Request body too large'),{code:'PREFLIGHT_BODY_TOO_LARGE'});chunks.push(chunk);}if(!chunks.length)return {};try{return JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{throw Object.assign(new Error('Invalid JSON body'),{code:'PREFLIGHT_BAD_JSON'})}}
 function validateFeedback(body){if(!body||typeof body!=='object')throw Object.assign(new Error('Feedback body is required'),{code:'PREFLIGHT_BAD_FEEDBACK'});let u;try{u=new URL(body.url)}catch{throw Object.assign(new Error('Invalid feedback URL'),{code:'PREFLIGHT_BAD_FEEDBACK'})}if(!['http:','https:'].includes(u.protocol))throw Object.assign(new Error('Feedback URL must be http/https'),{code:'PREFLIGHT_BAD_FEEDBACK'});if(!ROUTES.includes(body.route))throw Object.assign(new Error(`route must be one of ${ROUTES.join(', ')}`),{code:'PREFLIGHT_BAD_FEEDBACK'});if(!OUTCOMES.includes(body.outcome))throw Object.assign(new Error(`outcome must be one of ${OUTCOMES.join(', ')}`),{code:'PREFLIGHT_BAD_FEEDBACK'});const latencyMs=body.latencyMs==null?null:Number(body.latencyMs);if(latencyMs!=null&&(!Number.isFinite(latencyMs)||latencyMs<0||latencyMs>300000))throw Object.assign(new Error('latencyMs must be between 0 and 300000'),{code:'PREFLIGHT_BAD_FEEDBACK'});return {url:u.href,route:body.route,outcome:body.outcome,latencyMs};}
+function feedbackAuthorized(req,key){if(!key)return true;const auth=String(req.headers.authorization||'');const supplied=auth.startsWith('Bearer ')?auth.slice(7):'';if(!supplied||supplied.length!==key.length)return false;return crypto.timingSafeEqual(Buffer.from(supplied),Buffer.from(key));}
 
-export function createServer({cacheStore=cache,probe=probeUrl,feedbackStore=feedback}={}){
+export function createServer({cacheStore=cache,probe=probeUrl,feedbackStore=feedback,feedbackKey=process.env.PREFLIGHT_FEEDBACK_KEY||''}={}){
  return http.createServer(async(req,res)=>{res.setHeader('x-request-id',req.headers['x-request-id']||crypto.randomUUID());const u=new URL(req.url,'http://preflight.local');try{
    if(req.method==='GET'&&u.pathname==='/health')return send(res,200,{ok:true,service:'PREFLIGHT',version:VERSION});
+   if(req.method==='GET'&&u.pathname==='/ready'){const state=await feedbackStore.ready();return send(res,200,{ready:true,service:'PREFLIGHT',version:VERSION,persistence:state.ok?'writable':'unknown',feedbackProtection:feedbackKey?'bearer':'open'});}
    if(req.method==='GET'&&u.pathname==='/version')return send(res,200,{service:'PREFLIGHT',version:VERSION});
    if(req.method==='GET'&&u.pathname==='/')return send(res,200,{name:'PREFLIGHT',version:VERSION,tagline:'Before your AI agent visits a URL, ask us how to get there.',check:'GET /v1/check?url=https://example.com',feedback:'POST /v1/feedback',routes:ROUTES});
    if(req.method==='GET'&&u.pathname==='/v1/check'){
@@ -25,6 +27,7 @@ export function createServer({cacheStore=cache,probe=probeUrl,feedbackStore=feed
      const result=await probe(target);const stored=await cacheStore.put(key,result);const evidence=await feedbackStore.evidence(target);return send(res,200,applyRouteFeedback(stored,evidence),{'x-preflight-cache':'MISS'});
    }
    if(req.method==='POST'&&u.pathname==='/v1/feedback'){
+     if(!feedbackAuthorized(req,feedbackKey))return send(res,401,{error:'Valid bearer token required for feedback',code:'PREFLIGHT_UNAUTHORIZED'});
      const body=validateFeedback(await readJson(req));const receipt=await feedbackStore.record(body);const evidence=await feedbackStore.evidence(body.url);return send(res,202,{...receipt,evidence});
    }
    return send(res,404,{error:'Not found'});
