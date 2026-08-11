@@ -17,54 +17,40 @@ The long-term product is a machine map of the web: not *what is on the web*, but
 GET /v1/check?url=https://example.com
 ```
 
-PREFLIGHT 0.2 adds two observation layers:
+PREFLIGHT 0.3 keeps the 0.2 routing engine and adds a real-world benchmark layer so route quality can be measured against changing web behavior instead of judged by anecdotes.
 
-1. **URL observations** — status, redirects, body shape, token estimate, JavaScript shell, canonical URL, JSON-LD, challenge/auth/payment hints and advertised alternates.
-2. **Domain observations** — robots rules plus reusable discovery of common machine surfaces such as OpenAPI, AI-plugin metadata and sitemap presence.
+## Routing intelligence
+
+PREFLIGHT observes URL-level and reusable domain-level signals including status, redirects, body shape, token estimate, JavaScript-shell hints, canonical URL, JSON-LD, access/challenge hints, robots rules, content negotiation, advertised alternates and common machine surfaces such as OpenAPI metadata.
 
 URL results use a short cache. Domain observations use a longer cache, so the expensive work of learning a site's machine characteristics is shared across many URL checks.
 
-## Route intelligence in 0.2
+## M1P3 — Real-world benchmark
 
-PREFLIGHT now includes:
+The repository now includes `benchmarks/sites.json`, a cross-category corpus covering static HTML, documentation, direct JSON APIs, feeds, community sites, commerce, JS-heavy frontends, publishers, authentication/denial/rate-limit/server-error controls and redirects.
 
-- path-aware `robots.txt` interpretation, including specific `PREFLIGHT` rules and longest-rule precedence
-- reusable domain-level observations
-- content negotiation for `text/markdown`
-- HTML `<link rel="alternate">` discovery
-- HTTP `Link` header discovery
-- lightweight discovery of `/openapi.json`, `/.well-known/ai-plugin.json`, and `/sitemap.xml`
-- recommended machine endpoint when one is available
-- estimated token reduction when a smaller negotiated representation can be measured
-- improved classification confidence for HTTP, browser, machine-endpoint and avoid routes
+Run the benchmark with:
 
-Example shape:
-
-```json
-{
-  "bestRoute": "MACHINE_ENDPOINT",
-  "recommendedRoute": {
-    "kind": "negotiated-markdown",
-    "url": "https://example.com/docs",
-    "accept": "text/markdown"
-  },
-  "robots": {
-    "policy": "allowed",
-    "allowed": true
-  },
-  "content": {
-    "type": "text/html",
-    "bytes": 120000,
-    "estimatedTokens": 9000,
-    "jsonLd": 1
-  },
-  "machineEndpoints": [],
-  "savings": {
-    "estimatedTokenReduction": 6200,
-    "estimatedPercent": 69
-  }
-}
+```bash
+npm run benchmark
 ```
+
+The runner:
+
+- probes each target using the production routing engine
+- records the observed route, status, latency, token estimate, machine endpoints and recommendation
+- compares the result to one or more acceptable routes rather than pretending volatile websites have a permanent single answer
+- separately scores strict control cases where only one route is acceptable
+- writes machine-readable JSON reports to `benchmark-results/`
+- does **not** fail simply because a live website changes behavior
+
+GitHub Actions runs the deterministic unit suite on every change. A separate live benchmark workflow can be dispatched manually and is scheduled weekly; its JSON observations are retained as workflow artifacts for trend analysis.
+
+Environment options:
+
+- `PREFLIGHT_BENCHMARK_LIMIT` — run only the first N corpus entries
+- `PREFLIGHT_BENCHMARK_CATEGORY` — run one benchmark category
+- `PREFLIGHT_BENCHMARK_OUT` — choose the report directory
 
 ## Safety boundary
 
@@ -99,4 +85,4 @@ PREFLIGHT is not a crawler, browser farm, search engine or site-owner audit tool
 
 > **URL in → cheapest reliable machine route out.**
 
-M1P2 makes that routing answer materially smarter while keeping the service tiny and cache-friendly.
+M1P3 adds the evidence loop needed to improve that routing answer against the real web over time.
