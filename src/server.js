@@ -29,6 +29,7 @@ export function createServer({cacheStore=cache,probe=probeUrl,feedbackStore=feed
    if(req.method==='GET'&&u.pathname==='/health')return send(res,200,{ok:true,service:'PREFLIGHT',version:VERSION});
    if(req.method==='GET'&&u.pathname==='/ready'){const state=await feedbackStore.ready();return send(res,200,{ready:true,service:'PREFLIGHT',version:VERSION,persistence:state.ok?'writable':'unknown',feedbackProtection:feedbackKey?'bearer':'open'});}
    if(req.method==='GET'&&u.pathname==='/version')return send(res,200,{service:'PREFLIGHT',version:VERSION});
+   if(req.method==='GET'&&u.pathname==='/.well-known/glama.json')return send(res,200,{'$schema':'https://glama.ai/mcp/schemas/connector.json',maintainers:[{email:'gsterlingpress@gmail.com'}]});
    if(req.method==='GET'&&u.pathname==='/activity')return sendHtml(res,200,dashboardHtml());
    if(req.method==='GET'&&u.pathname==='/v1/activity')return send(res,200,activityStore.snapshot());
    if(req.method==='GET'&&u.pathname==='/v1/activity/all')return send(res,200,await combinedActivity(activityStore));
