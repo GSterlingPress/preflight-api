@@ -7,6 +7,7 @@ on:
     paths:
       - src/server.js
       - src/activity.js
+      - src/mcp.js
       - package.json
       - .github/workflows/validate-live-activity.yml
 
@@ -36,18 +37,49 @@ jobs:
             sleep 5
           done
           exit 1
-      - name: Validate PREFLIGHT activity API and dashboard
+      - name: Validate PREFLIGHT activity API, permanent ledger, and TRUE scoreboard
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://preflight-api-production-01a2.up.railway.app'
           curl -fsS --max-time 15 "$BASE/v1/activity" | tee preflight-activity.json
-          grep -q '"service":"PREFLIGHT"' preflight-activity.json
-          grep -q '"external"' preflight-activity.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const s=JSON.parse(fs.readFileSync('preflight-activity.json','utf8'));
+          if(s.service!=='PREFLIGHT') throw new Error('wrong service');
+          if(!s.persistence?.enabled) throw new Error('persistence disabled');
+          if(s.persistence?.realUseCapacity!=='unbounded') throw new Error('real-use ledger is not unbounded');
+          if(!String(s.persistence?.realUseFile||'').endsWith('/real-use.json')) throw new Error('real-use ledger path missing');
+          if((s.realUse?.allTimeConvertedRealWorldCallers??-1)!==1) throw new Error(`TRUE scoreboard changed: ${s.realUse?.allTimeConvertedRealWorldCallers}`);
+          if(!s.realWorldConversionMilestones?.[0]?.achieved) throw new Error('Stranger #1 lost');
+          if(s.realWorldConversionMilestones?.[1]?.achieved) throw new Error('Unexpected TRUE Stranger #2 during validation');
+          console.log('TRUE scoreboard intact at 1/10; permanent ledger enabled.');
+          NODE
           curl -fsS --max-time 15 "$BASE/activity" | tee activity.html
           grep -q 'Sterling Machine Activity' activity.html
           grep -q 'PREFLIGHT' activity.html
           grep -q 'ONCE' activity.html
+      - name: Validate live MCP selection metadata without calling the core tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://preflight-api-production-01a2.up.railway.app'
+          curl -fsS --max-time 15 -X POST "$BASE/mcp" \
+            -H 'content-type: application/json' \
+            -H 'user-agent: preflight-metadata-validator/1.0' \
+            -H 'x-preflight-internal: 1' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | tee tools.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r=JSON.parse(fs.readFileSync('tools.json','utf8'));
+          const t=r?.result?.tools?.find(x=>x.name==='preflight_check');
+          if(!t) throw new Error('preflight_check missing');
+          if(t.title!=='Check URL Before Fetching') throw new Error(`unexpected title: ${t.title}`);
+          if(t.inputSchema?.properties?.url?.format!=='uri') throw new Error('URL format=uri missing');
+          const a=t.annotations||{};
+          if(a.readOnlyHint!==true||a.destructiveHint!==false||a.idempotentHint!==true) throw new Error('safety annotations missing');
+          console.log('Live MCP title/schema/safety annotations verified without tools/call.');
+          NODE
       - name: Validate ONCE activity API
         shell: bash
         run: |
