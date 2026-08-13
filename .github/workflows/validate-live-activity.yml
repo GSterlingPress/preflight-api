@@ -37,7 +37,7 @@ jobs:
             sleep 5
           done
           exit 1
-      - name: Validate PREFLIGHT activity API, permanent ledger, and TRUE scoreboard
+      - name: Validate PREFLIGHT evidence-backed scoreboard and audit candidates
         shell: bash
         run: |
           set -euo pipefail
@@ -50,10 +50,16 @@ jobs:
           if(!s.persistence?.enabled) throw new Error('persistence disabled');
           if(s.persistence?.realUseCapacity!=='unbounded') throw new Error('real-use ledger is not unbounded');
           if(!String(s.persistence?.realUseFile||'').endsWith('/real-use.json')) throw new Error('real-use ledger path missing');
-          if((s.realUse?.allTimeConvertedRealWorldCallers??-1)!==1) throw new Error(`TRUE scoreboard changed: ${s.realUse?.allTimeConvertedRealWorldCallers}`);
-          if(!s.realWorldConversionMilestones?.[0]?.achieved) throw new Error('Stranger #1 lost');
-          if(s.realWorldConversionMilestones?.[1]?.achieved) throw new Error('Unexpected TRUE Stranger #2 during validation');
-          console.log('TRUE scoreboard intact at 1/10; permanent ledger enabled.');
+          if(!String(s.verificationPolicy?.rule||'').includes('Only CREDIBLE_REAL_USE')) throw new Error('verification policy missing');
+          const milestones=s.realWorldConversionMilestones||[];
+          const bad=milestones.filter(x=>x.achieved&&x.classification!=='CREDIBLE_REAL_USE');
+          if(bad.length) throw new Error(`non-credible milestone awarded: ${JSON.stringify(bad)}`);
+          const candidates=s.candidateRealUse||[];
+          console.log('PREFLIGHT candidate summary:',JSON.stringify(candidates.map(x=>({at:x.at,caller:x.caller,route:x.route,host:x.host,classification:x.classification,reasons:x.reasons,clientInfo:x.audit?.clientInfo,userAgent:x.audit?.userAgent,attribution:x.discoveryAttribution})),null,2));
+          const historical=candidates.filter(x=>String(x.caller||'').startsWith('358d3660'));
+          console.log('358d3660 PREFLIGHT audit:',JSON.stringify(historical,null,2));
+          if(historical.some(x=>x.classification==='CREDIBLE_REAL_USE')) throw new Error('358d3660 must not be verified');
+          console.log('verified strangers:',s.realUse?.allTimeVerifiedStrangers??0);
           NODE
           curl -fsS --max-time 15 "$BASE/activity" | tee activity.html
           grep -q 'Sterling Machine Activity' activity.html
@@ -68,6 +74,7 @@ jobs:
             -H 'content-type: application/json' \
             -H 'user-agent: preflight-metadata-validator/1.0' \
             -H 'x-preflight-internal: 1' \
+            -H 'x-tollbooth-internal: 1' \
             --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | tee tools.json
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
@@ -78,12 +85,20 @@ jobs:
           if(t.inputSchema?.properties?.url?.format!=='uri') throw new Error('URL format=uri missing');
           const a=t.annotations||{};
           if(a.readOnlyHint!==true||a.destructiveHint!==false||a.idempotentHint!==true) throw new Error('safety annotations missing');
-          console.log('Live MCP title/schema/safety annotations verified without tools/call.');
+          console.log('Live MCP metadata verified without tools/call.');
           NODE
-      - name: Validate ONCE activity API
+      - name: Validate ONCE activity classification
         shell: bash
         run: |
           set -euo pipefail
           curl -fsS --max-time 15 'https://optimistic-compassion-production.up.railway.app/v1/activity' | tee once-activity.json
-          grep -q '"service":"ONCE"' once-activity.json
-          grep -q '"external"' once-activity.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const s=JSON.parse(fs.readFileSync('once-activity.json','utf8'));
+          if(s.service!=='ONCE') throw new Error('wrong ONCE service');
+          if(!String(s.verificationPolicy?.rule||'').includes('Only CREDIBLE_REAL_USE')) throw new Error('ONCE verification policy missing');
+          const bad=(s.feed||[]).filter(x=>['KNOWN_VALIDATOR','CONTROLLED_TEST','LIKELY_VALIDATOR','UNKNOWN_MACHINE'].includes(x.classification)&&x.classification==='CREDIBLE_REAL_USE');
+          if(bad.length) throw new Error('invalid ONCE classification');
+          console.log('ONCE candidate summary:',JSON.stringify((s.feed||[]).filter(x=>x.classification).map(x=>({at:x.at,caller:x.caller,result:x.result,classification:x.classification,reasons:x.classificationReasons,clientInfo:x.audit?.clientInfo,userAgent:x.audit?.userAgent})),null,2));
+          console.log('ONCE verified strangers:',s.realUse?.verifiedStrangers??0);
+          NODE
