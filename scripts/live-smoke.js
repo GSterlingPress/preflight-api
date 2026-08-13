@@ -2,9 +2,11 @@ const base=(process.env.PREFLIGHT_LIVE_URL||process.argv[2]||'').replace(/\/$/,'
 if(!base)throw new Error('Set PREFLIGHT_LIVE_URL or pass the public base URL as argv[2].');
 const feedbackKey=process.env.PREFLIGHT_FEEDBACK_KEY||'';
 const target=process.env.PREFLIGHT_SMOKE_TARGET||'https://example.com/';
+const internal={'x-preflight-internal':'1','x-tollbooth-internal':'1','user-agent':'preflight-controlled-smoke/1.0'};
 
 async function json(url,options={}){
-  const r=await fetch(url,options);const text=await r.text();let body;try{body=JSON.parse(text)}catch{body={raw:text}}
+  const headers={...internal,...(options.headers||{})};
+  const r=await fetch(url,{...options,headers});const text=await r.text();let body;try{body=JSON.parse(text)}catch{body={raw:text}}
   if(!r.ok)throw new Error(`${r.status} ${url}: ${JSON.stringify(body)}`);return {r,body};
 }
 
@@ -18,4 +20,4 @@ const posted=(await json(`${base}/v1/feedback`,{method:'POST',headers,body:JSON.
 const second=(await json(`${base}/v1/check?url=${encodeURIComponent(target)}`)).body;
 const after=second.feedback?.evidence?.url?.routes?.[route]?.total||0;
 if(after<before+1)throw new Error(`Feedback evidence did not increase: before=${before}, after=${after}`);
-console.log(JSON.stringify({ok:true,base,version:version.version,ready:ready.ready,target,route,feedbackAccepted:posted.accepted,evidenceBefore:before,evidenceAfter:after,cache:second.cache?.hit??null},null,2));
+console.log(JSON.stringify({ok:true,base,version:version.version,ready:ready.ready,target,route,feedbackAccepted:posted.accepted,evidenceBefore:before,evidenceAfter:after,cache:second.cache?.hit??null,classification:'CONTROLLED_TEST'},null,2));
