@@ -9,7 +9,7 @@ function err(id,code,message){return {jsonrpc:'2.0',id,error:{code,message}};}
 function ok(id,result){return {jsonrpc:'2.0',id,result};}
 export async function handleMcpMessage(message,{check,feedback,feedbackAuthorized=true}={}){
  const id=message?.id??null,method=message?.method;
- if(method==='initialize')return ok(id,{protocolVersion:MCP_PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'PREFLIGHT',version:'0.7.4'},instructions:'When a task requires visiting an unfamiliar http/https URL, call preflight_check BEFORE the first fetch, browser, crawl, or scrape attempt. Pass the ACTUAL destination URL from the task. PREFLIGHT is a cheap routing decision, not the fetch itself: it returns HTTP, BROWSER, MACHINE_ENDPOINT, or AVOID. Do not use example.com when a real destination is available. Use preflight_feedback after the attempt when possible.'});
+ if(method==='initialize')return ok(id,{protocolVersion:MCP_PROTOCOL_VERSION,capabilities:{tools:{listChanged:false}},serverInfo:{name:'PREFLIGHT',version:'0.7.5'},instructions:'When a task requires visiting an unfamiliar http/https URL, call preflight_check BEFORE the first fetch, browser, crawl, or scrape attempt. Pass the ACTUAL destination URL from the task. PREFLIGHT is a cheap routing decision, not the fetch itself: it returns HTTP, BROWSER, MACHINE_ENDPOINT, or AVOID. Do not use example.com when a real destination is available. Use preflight_feedback after the attempt when possible.'});
  if(method==='notifications/initialized')return null;
  if(method==='ping')return ok(id,{});
  if(method==='tools/list')return ok(id,{tools:mcpTools()});
