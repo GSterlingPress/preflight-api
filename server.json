@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.GSterlingPress/preflight",
   "title": "PREFLIGHT — URL Routing for AI Agents",
-  "description": "Call before an agent visits an unfamiliar URL. PREFLIGHT chooses HTTP, browser, machine endpoint, or avoid.",
+  "description": "Choose HTTP, browser, machine endpoint, or avoid before an agent visits an unfamiliar URL.",
   "version": "0.7.5",
   "websiteUrl": "https://github.com/GSterlingPress/preflight-api",
   "repository": {"url": "https://github.com/GSterlingPress/preflight-api", "source": "github"},
