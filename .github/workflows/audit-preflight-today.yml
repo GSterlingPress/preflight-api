@@ -1,0 +1,89 @@
+name: Audit PREFLIGHT Today
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/audit-preflight-today.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PREFLIGHT_BASE_URL: https://preflight-api-production-01a2.up.railway.app
+    steps:
+      - name: Audit production activity and dashboard
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const base = process.env.PREFLIGHT_BASE_URL.replace(/\/+$/, '');
+          const headers = {
+            'user-agent': 'preflight-production-auditor/1.0',
+            accept: 'application/json',
+            'accept-language': 'en-US,en;q=0.9',
+            'x-preflight-internal': '1'
+          };
+          async function json(path) {
+            const r = await fetch(base + path, {headers});
+            if (!r.ok) throw new Error(`${path} returned ${r.status}`);
+            return r.json();
+          }
+          const payload = await json('/v1/activity/all');
+          const p = payload?.preflight;
+          if (!p) throw new Error('Missing PREFLIGHT snapshot');
+          const today = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
+          }).format(new Date());
+          const all = Array.isArray(p.feed) ? p.feed : [];
+          const real = Array.isArray(p.realFeed) ? p.realFeed : [];
+          const localDay = (iso) => new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit'
+          }).format(new Date(iso));
+          const todayAll = all.filter(e => localDay(e.at) === today);
+          const todayReal = real.filter(e => localDay(e.at) === today);
+          const counts = (events, key) => Object.fromEntries(Object.entries(events.reduce((a,e)=>{
+            const k = String(e?.[key] ?? 'null'); a[k]=(a[k]||0)+1; return a;
+          },{})).sort((a,b)=>b[1]-a[1]));
+          const candidate = Array.isArray(p.candidateRealUse) ? p.candidateRealUse.filter(e => localDay(e.at) === today) : [];
+          const sanitizedCandidates = candidate.map(e => ({
+            at:e.at, host:e.host||null, route:e.route||null, source:e.source||null,
+            channel:e.channel||null, caller:String(e.caller||'').slice(0,8),
+            classification:e.classification||null, reasons:e.reasons||[],
+            discoveryAttribution:e.discoveryAttribution||null,
+            clientInfo:e.audit?.clientInfo||null
+          }));
+          const result = {
+            auditedAt: new Date().toISOString(), localDate: today,
+            persistence:p.persistence,
+            external:p.external,
+            realUse:p.realUse,
+            conversion:p.conversion,
+            attribution:p.attribution,
+            todayAllCount:todayAll.length,
+            todayRealCount:todayReal.length,
+            todayByKind:counts(todayAll,'kind'),
+            todayBySource:counts(todayAll,'source'),
+            todayByChannel:counts(todayAll,'channel'),
+            candidateRealUseToday:sanitizedCandidates,
+            milestones:p.realWorldConversionMilestones
+          };
+          console.log('PREFLIGHT_AUDIT=' + JSON.stringify(result));
+
+          const d = await fetch(base + '/activity', {headers:{...headers,accept:'text/html'}});
+          if (!d.ok) throw new Error(`/activity returned ${d.status}`);
+          const html = await d.text();
+          const dashboard = {
+            hasActivityFetch: html.includes("fetch('/v1/activity/all')"),
+            hasPCalls: html.includes('id="pcalls"'),
+            hasUpdated: html.includes('id="updated"'),
+            usesImplicitIdGlobals: /pcalls\.textContent/.test(html) && !/getElementById\(['\"]pcalls['\"]\)/.test(html),
+            length: html.length
+          };
+          console.log('DASHBOARD_AUDIT=' + JSON.stringify(dashboard));
+          NODE
