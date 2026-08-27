@@ -37,6 +37,18 @@ jobs:
             sleep 5
           done
           exit 1
+      - name: Wait for repaired activity dashboard deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://preflight-api-production-01a2.up.railway.app'
+          for i in $(seq 1 60); do
+            H=$(curl -fsS --max-time 10 "$BASE/activity" || true)
+            if echo "$H" | grep -q "const byId=id=>document.getElementById(id)"; then exit 0; fi
+            sleep 5
+          done
+          echo 'Repaired dashboard bindings did not reach production in time.' >&2
+          exit 1
       - name: Validate PREFLIGHT evidence-backed scoreboard and audit candidates
         shell: bash
         run: |
@@ -55,9 +67,8 @@ jobs:
           const bad=milestones.filter(x=>x.achieved&&x.classification!=='CREDIBLE_REAL_USE');
           if(bad.length) throw new Error(`non-credible milestone awarded: ${JSON.stringify(bad)}`);
           const candidates=s.candidateRealUse||[];
-          console.log('PREFLIGHT candidate summary:',JSON.stringify(candidates.map(x=>({at:x.at,caller:x.caller,route:x.route,host:x.host,classification:x.classification,reasons:x.reasons,clientInfo:x.audit?.clientInfo,userAgent:x.audit?.userAgent,attribution:x.discoveryAttribution})),null,2));
+          console.log('PREFLIGHT candidate summary:',JSON.stringify(candidates.map(x=>({at:x.at,caller:String(x.caller||'').slice(0,8),route:x.route,host:x.host,classification:x.classification,reasons:x.reasons,clientInfo:x.audit?.clientInfo,attribution:x.discoveryAttribution})),null,2));
           const historical=candidates.filter(x=>String(x.caller||'').startsWith('358d3660'));
-          console.log('358d3660 PREFLIGHT audit:',JSON.stringify(historical,null,2));
           if(historical.some(x=>x.classification==='CREDIBLE_REAL_USE')) throw new Error('358d3660 must not be verified');
           console.log('verified strangers:',s.realUse?.allTimeVerifiedStrangers??0);
           NODE
@@ -65,6 +76,8 @@ jobs:
           grep -q 'Sterling Machine Activity' activity.html
           grep -q 'PREFLIGHT' activity.html
           grep -q 'ONCE' activity.html
+          grep -q "const byId=id=>document.getElementById(id)" activity.html
+          grep -q "pcalls=byId('pcalls')" activity.html
       - name: Validate live MCP selection metadata without calling the core tool
         shell: bash
         run: |
@@ -97,8 +110,5 @@ jobs:
           const s=JSON.parse(fs.readFileSync('once-activity.json','utf8'));
           if(s.service!=='ONCE') throw new Error('wrong ONCE service');
           if(!String(s.verificationPolicy?.rule||'').includes('Only CREDIBLE_REAL_USE')) throw new Error('ONCE verification policy missing');
-          const bad=(s.feed||[]).filter(x=>['KNOWN_VALIDATOR','CONTROLLED_TEST','LIKELY_VALIDATOR','UNKNOWN_MACHINE'].includes(x.classification)&&x.classification==='CREDIBLE_REAL_USE');
-          if(bad.length) throw new Error('invalid ONCE classification');
-          console.log('ONCE candidate summary:',JSON.stringify((s.feed||[]).filter(x=>x.classification).map(x=>({at:x.at,caller:x.caller,result:x.result,classification:x.classification,reasons:x.classificationReasons,clientInfo:x.audit?.clientInfo,userAgent:x.audit?.userAgent})),null,2));
           console.log('ONCE verified strangers:',s.realUse?.verifiedStrangers??0);
           NODE
