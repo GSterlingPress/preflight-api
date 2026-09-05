@@ -5,8 +5,9 @@ import {probeUrl} from './probe.js';
 import {FeedbackStore,applyRouteFeedback,ROUTES,OUTCOMES} from './feedback.js';
 import {handleMcpMessage,MCP_PROTOCOL_VERSION} from './mcp.js';
 import {ActivityStore} from './activity.js';
+import {evidenceDashboardHtml} from './evidence-dashboard.js';
 
-export const VERSION='0.7.5';
+export const VERSION='0.8.0';
 const cache=createUrlCache();
 const feedback=new FeedbackStore();
 const activity=new ActivityStore();
@@ -31,24 +32,25 @@ export function createServer({cacheStore=cache,probe=probeUrl,feedbackStore=feed
    if(req.method==='GET'&&u.pathname==='/version')return send(res,200,{service:'PREFLIGHT',version:VERSION});
    if(req.method==='GET'&&u.pathname==='/.well-known/glama.json')return send(res,200,{'$schema':'https://glama.ai/mcp/schemas/connector.json',maintainers:[{email:'gsterlingpress@gmail.com'}]});
    if(req.method==='GET'&&u.pathname==='/activity')return sendHtml(res,200,dashboardHtml());
+   if(req.method==='GET'&&u.pathname==='/activity/evidence')return sendHtml(res,200,evidenceDashboardHtml());
    if(req.method==='GET'&&u.pathname==='/v1/activity')return send(res,200,activityStore.snapshot());
    if(req.method==='GET'&&u.pathname==='/v1/activity/all')return send(res,200,await combinedActivity(activityStore));
-   if(req.method==='GET'&&u.pathname==='/')return send(res,200,{name:'PREFLIGHT',version:VERSION,tagline:'Before your AI agent visits a URL, ask us how to get there.',check:'GET /v1/check?url=<your-real-url>',feedback:'POST /v1/feedback',mcp:'POST /mcp',activity:'GET /activity',routes:ROUTES});
+   if(req.method==='GET'&&u.pathname==='/')return send(res,200,{name:'PREFLIGHT',version:VERSION,tagline:'Before your AI agent visits a URL, ask us how to get there.',check:'GET /v1/check?url=<your-real-url>',feedback:'POST /v1/feedback',mcp:'POST /mcp',activity:'GET /activity',callerEvidence:'GET /activity/evidence',routes:ROUTES});
    if(u.pathname==='/mcp'){
      if(!validOrigin(req))return send(res,403,{error:'Origin not allowed',code:'PREFLIGHT_BAD_ORIGIN'});
      if(req.method==='GET')return send(res,405,{error:'SSE sessions are not enabled; use POST Streamable HTTP.'},{allow:'POST'});
      if(req.method!=='POST')return send(res,405,{error:'Method not allowed'},{allow:'POST'});
-     const message=await readJson(req,65536);const reply=await handleMcpMessage(message,{check,feedback:recordFeedback,feedbackAuthorized:feedbackAuthorized(req,feedbackKey)});const toolName=message?.method==='tools/call'?String(message?.params?.name||'unknown'):null;const route=toolName?`tools/call:${toolName}`:message?.method||null;const target=(toolName==='preflight_check'||toolName==='preflight_feedback')?message?.params?.arguments?.url:null;const clientInfo=message?.method==='initialize'?message?.params?.clientInfo:null;activityStore.record(req,{kind:'mcp',route,target,status:reply===null?202:200,clientInfo});
+     const message=await readJson(req,65536);const reply=await handleMcpMessage(message,{check,feedback:recordFeedback,feedbackAuthorized:feedbackAuthorized(req,feedbackKey)});const toolName=message?.method==='tools/call'?String(message?.params?.name||'unknown'):null;const route=toolName?`tools/call:${toolName}`:message?.method||null;const target=(toolName==='preflight_check'||toolName==='preflight_feedback')?message?.params?.arguments?.url:null;const clientInfo=message?.method==='initialize'?message?.params?.clientInfo:null;activityStore.record(req,{kind:'mcp',route,target,status:reply===null?202:200,clientInfo,input:message?.params?.arguments||null});
      if(reply===null){res.writeHead(202,{...baseHeaders,'mcp-protocol-version':MCP_PROTOCOL_VERSION});return res.end();}
      return send(res,200,reply,{'mcp-protocol-version':MCP_PROTOCOL_VERSION});
    }
    if(req.method==='GET'&&u.pathname==='/v1/check'){
      const target=u.searchParams.get('url');if(!target)return send(res,400,{error:'Missing url query parameter',code:'PREFLIGHT_BAD_REQUEST'});
-     const key=keyFor(target);const had=await cacheStore.get(key);if(had){const evidence=await feedbackStore.evidence(target);const body=applyRouteFeedback(had,evidence);activityStore.record(req,{kind:'check',route:body.bestRoute,target,status:200});return send(res,200,body,{'x-preflight-cache':'HIT'});}const result=await probe(target);const stored=await cacheStore.put(key,result);const evidence=await feedbackStore.evidence(target);const body=applyRouteFeedback(stored,evidence);activityStore.record(req,{kind:'check',route:body.bestRoute,target,status:200});return send(res,200,body,{'x-preflight-cache':'MISS'});
+     const key=keyFor(target);const had=await cacheStore.get(key);if(had){const evidence=await feedbackStore.evidence(target);const body=applyRouteFeedback(had,evidence);activityStore.record(req,{kind:'check',route:body.bestRoute,target,status:200,input:{url:target}});return send(res,200,body,{'x-preflight-cache':'HIT'});}const result=await probe(target);const stored=await cacheStore.put(key,result);const evidence=await feedbackStore.evidence(target);const body=applyRouteFeedback(stored,evidence);activityStore.record(req,{kind:'check',route:body.bestRoute,target,status:200,input:{url:target}});return send(res,200,body,{'x-preflight-cache':'MISS'});
    }
    if(req.method==='POST'&&u.pathname==='/v1/feedback'){
      if(!feedbackAuthorized(req,feedbackKey))return send(res,401,{error:'Valid bearer token required for feedback',code:'PREFLIGHT_UNAUTHORIZED'});
-     const body=await readJson(req);const receipt=await recordFeedback(body);activityStore.record(req,{kind:'feedback',route:body.route,target:body.url,status:202});return send(res,202,receipt);
+     const body=await readJson(req);const receipt=await recordFeedback(body);activityStore.record(req,{kind:'feedback',route:body.route,target:body.url,status:202,input:body});return send(res,202,receipt);
    }
    return send(res,404,{error:'Not found'});
   }catch(e){const status=e?.code==='PREFLIGHT_UNSAFE_URL'?422:e?.code==='PREFLIGHT_BODY_TOO_LARGE'?413:['PREFLIGHT_BAD_URL','PREFLIGHT_BAD_JSON','PREFLIGHT_BAD_FEEDBACK'].includes(e?.code)?400:500;return send(res,status,{error:e instanceof Error?e.message:'Unknown error',code:e?.code||'PREFLIGHT_INTERNAL'});}});
