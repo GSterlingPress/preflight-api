@@ -23,9 +23,20 @@ For direct REST integrations, send `X-Preflight-Source` and optionally `X-Prefli
 Example:
 `curl -H 'X-Preflight-Source: github' -H 'X-Preflight-Campaign: m2p4' 'https://preflight-api-production-01a2.up.railway.app/v1/check?url=https://example.com'`
 
-Recommended source labels: `github`, `mcp-registry`, `glama`, `smithery`, `pulsemcp`, `mcp-so`, `hackernews`, `reddit`, `devto`, `linkedin`, `direct`.
+Recommended source labels: `github`, `mcp-registry`, `glama`, `smithery`, `pulsemcp`, `llms`, `mcp-so`, `hackernews`, `reddit`, `devto`, `linkedin`, `direct`.
 
-For clickable human links where custom headers are unavailable, use a landing/check URL with ordinary UTM parameters for human analytics; API attribution should prefer the headers above because PREFLIGHT intentionally does not retain full target URLs.
+For passive surfaces that cannot set headers, append a harmless `src` query marker to the MCP endpoint. The server routes by pathname, so the marker does not change MCP behavior:
+
+- GitHub: `https://preflight-api-production-01a2.up.railway.app/mcp?src=github`
+- Official MCP Registry: `https://preflight-api-production-01a2.up.railway.app/mcp?src=mcp-registry`
+- Glama: `https://preflight-api-production-01a2.up.railway.app/mcp?src=glama`
+- Smithery: `https://preflight-api-production-01a2.up.railway.app/mcp?src=smithery`
+- PulseMCP: `https://preflight-api-production-01a2.up.railway.app/mcp?src=pulsemcp`
+- llms.txt / LLM discovery: `https://preflight-api-production-01a2.up.railway.app/mcp?src=llms`
+
+A source tag records where a caller first appeared; it is **not** proof that the caller is a validator. Validator classification requires separate client/fingerprint evidence. This prevents a genuine user arriving through Glama, Smithery, or the registry from being discarded merely because of the acquisition source.
+
+For clickable human links where custom headers are unavailable, use a source marker or ordinary UTM parameters for attribution. PREFLIGHT intentionally does not retain full target URLs, raw IP addresses, or request payloads.
 
 ## Short social version
 What if AI agents didn't have to rediscover how every website works?
@@ -56,6 +67,7 @@ If your agent is about to fetch or browser-render an unfamiliar URL, call PREFLI
 REST: https://preflight-api-production-01a2.up.railway.app/v1/check
 MCP: https://preflight-api-production-01a2.up.railway.app/mcp
 Activity: https://preflight-api-production-01a2.up.railway.app/activity
+Caller evidence dashboard: https://preflight-api-production-01a2.up.railway.app/activity/evidence
 
 ## Distribution targets
 - MCP ecosystem listings and clients
@@ -75,6 +87,9 @@ Milestone D: 50 attributable external URL checks.
 Milestone E: 100 attributable external URL checks.
 
 Do not count our own CI, health checks, dashboard requests, or deliberate acceptance tests as customer usage.
+
+## Stranger gate rule
+Core-tool invocation is evidence of use, not automatically evidence of an independent stranger. `PROBABLE_REAL_USE` and `UNKNOWN_MACHINE` remain visible for investigation, but only evidence-backed `CREDIBLE_REAL_USE` advances verified-stranger milestones. Repeat use on a later day is tracked separately and never inferred from a burst of same-session calls.
 
 ## Rule
 Lead with the problem and a runnable example. Do not claim adoption, savings, or reliability numbers we have not measured.
