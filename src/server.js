@@ -5,6 +5,7 @@ import {probeUrl} from './probe.js';
 import {FeedbackStore,applyRouteFeedback,ROUTES,OUTCOMES} from './feedback.js';
 import {handleMcpMessage,MCP_PROTOCOL_VERSION} from './mcp.js';
 import {ActivityStore} from './activity.js';
+import {evidenceDashboardHtml} from './evidence-dashboard.js';
 
 export const VERSION='0.8.0';
 const cache=createUrlCache();
@@ -31,9 +32,10 @@ export function createServer({cacheStore=cache,probe=probeUrl,feedbackStore=feed
    if(req.method==='GET'&&u.pathname==='/version')return send(res,200,{service:'PREFLIGHT',version:VERSION});
    if(req.method==='GET'&&u.pathname==='/.well-known/glama.json')return send(res,200,{'$schema':'https://glama.ai/mcp/schemas/connector.json',maintainers:[{email:'gsterlingpress@gmail.com'}]});
    if(req.method==='GET'&&u.pathname==='/activity')return sendHtml(res,200,dashboardHtml());
+   if(req.method==='GET'&&u.pathname==='/activity/evidence')return sendHtml(res,200,evidenceDashboardHtml());
    if(req.method==='GET'&&u.pathname==='/v1/activity')return send(res,200,activityStore.snapshot());
    if(req.method==='GET'&&u.pathname==='/v1/activity/all')return send(res,200,await combinedActivity(activityStore));
-   if(req.method==='GET'&&u.pathname==='/')return send(res,200,{name:'PREFLIGHT',version:VERSION,tagline:'Before your AI agent visits a URL, ask us how to get there.',check:'GET /v1/check?url=<your-real-url>',feedback:'POST /v1/feedback',mcp:'POST /mcp',activity:'GET /activity',routes:ROUTES});
+   if(req.method==='GET'&&u.pathname==='/')return send(res,200,{name:'PREFLIGHT',version:VERSION,tagline:'Before your AI agent visits a URL, ask us how to get there.',check:'GET /v1/check?url=<your-real-url>',feedback:'POST /v1/feedback',mcp:'POST /mcp',activity:'GET /activity',callerEvidence:'GET /activity/evidence',routes:ROUTES});
    if(u.pathname==='/mcp'){
      if(!validOrigin(req))return send(res,403,{error:'Origin not allowed',code:'PREFLIGHT_BAD_ORIGIN'});
      if(req.method==='GET')return send(res,405,{error:'SSE sessions are not enabled; use POST Streamable HTTP.'},{allow:'POST'});
