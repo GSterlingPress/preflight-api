@@ -3,8 +3,16 @@
   "name": "io.github.GSterlingPress/preflight",
   "title": "PREFLIGHT — URL Routing for AI Agents",
   "description": "Choose HTTP, browser, machine endpoint, or avoid before an agent visits an unfamiliar URL.",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "websiteUrl": "https://github.com/GSterlingPress/preflight-api",
-  "repository": {"url": "https://github.com/GSterlingPress/preflight-api", "source": "github"},
-  "remotes": [{"type": "streamable-http", "url": "https://preflight-api-production-01a2.up.railway.app/mcp"}]
+  "repository": {
+    "url": "https://github.com/GSterlingPress/preflight-api",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://preflight-api-production-01a2.up.railway.app/mcp"
+    }
+  ]
 }
